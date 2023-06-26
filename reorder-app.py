@@ -6,10 +6,10 @@ def load_data(uploaded_file):
   return data
   
 def main():
-uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
-if uploaded_file:
-  data = load_data(uploaded_file)
-  st.write(data)
+  uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
+  if uploaded_file:
+    data = load_data(uploaded_file)
+    st.write(data)
 
 
 
