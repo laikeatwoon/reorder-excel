@@ -28,13 +28,13 @@ def extract_data(data):
 
   return new_data
 
-def reorder_data(data):
+def reorder_data(new_data):
   reorder_data = pd.DataFrame(columns=['Product Code', 'Unit Sold', 'Balance Stock'])
   j = 0
-  for index, row in data.iterrows():
-    product_code = data.at[index, "Product Code"]
-    unit_sold = isfloat(data.at[index, "Unit Sold"])
-    balance_stock = isfloat(data.at[index, "Balance Stock"])
+  for index, row in new_data.iterrows():
+    product_code = new_data.at[index, "Product Code"]
+    unit_sold = isfloat(new_data.at[index, "Unit Sold"])
+    balance_stock = isfloat(new_data.at[index, "Balance Stock"])
 
     if unit_sold >= balance_stock:
         reorder_data.loc[i] = [product_code, unit_sold, balance_stock]
