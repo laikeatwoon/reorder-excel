@@ -43,12 +43,13 @@ def extract_reorder_data(new_data):
 
   
 def main():
+  st.header("Please Order Stocks Display in the Table")
   uploaded_file = st.file_uploader("Choose a Excel file", type="xlsx")
   if uploaded_file:
     data = load_data(uploaded_file)
     new_data = extract_data(data)
     reorder_data = extract_reorder_data(new_data)
-    st.write(reorder_data)
+    st.table(reorder_data)
 
 if __name__ == "__main__":
     main()
