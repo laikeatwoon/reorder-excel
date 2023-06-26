@@ -21,6 +21,13 @@ def extract_data(data):
 
   return new_data
 
+def isfloat(value):
+  try:
+    float(value)
+    return True
+  except ValueError:
+    return False
+
   
 def main():
   uploaded_file = st.file_uploader("Choose a Excel file", type="xlsx")
