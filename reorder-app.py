@@ -46,10 +46,13 @@ def main():
   st.header("Please Order Stocks Display in the Table")
   uploaded_file = st.file_uploader("Choose a Excel file", type="xlsx")
   if uploaded_file:
-    data = load_data(uploaded_file)
-    new_data = extract_data(data)
-    reorder_data = extract_reorder_data(new_data)
-    st.table(reorder_data)
+    try:
+      data = load_data(uploaded_file)
+      new_data = extract_data(data)
+      reorder_data = extract_reorder_data(new_data)
+      st.table(reorder_data)
+    except Exception as e:
+        st.warning("The file is not in the correct format.")
 
 if __name__ == "__main__":
     main()
