@@ -28,18 +28,17 @@ def extract_data(data):
 
   return new_data
 
-def reorder_data(new_data):
+def extract_reorder_data(new_data):
   reorder_data = pd.DataFrame(columns=['Product Code', 'Unit Sold', 'Balance Stock'])
   j = 0
   for index, row in new_data.iterrows():
     product_code = new_data.at[index, "Product Code"]
-    unit_sold = isfloat(new_data.at[index, "Unit Sold"])
-    balance_stock = isfloat(new_data.at[index, "Balance Stock"])
+    unit_sold = new_data.at[index, "Unit Sold"]
+    balance_stock = new_data.at[index, "Balance Stock"]
 
     if unit_sold >= balance_stock:
-        reorder_data.loc[i] = [product_code, unit_sold, balance_stock]
+        reorder_data.loc[j] = [product_code, unit_sold, balance_stock]
         j = j + 1
-
   return reorder_data
 
   
@@ -48,9 +47,8 @@ def main():
   if uploaded_file:
     data = load_data(uploaded_file)
     new_data = extract_data(data)
-    reorder_data = reorder_data(new_data)
+    reorder_data = extract_reorder_data(new_data)
     st.write(reorder_data)
 
 if __name__ == "__main__":
     main()
-
