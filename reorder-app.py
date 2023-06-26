@@ -3,6 +3,13 @@ import pandas as pd
 import openpyxl
 
 
+def isfloat(value):
+  try:
+    float(value)
+    return True
+  except ValueError:
+    return False
+
 def load_data(uploaded_file):
   data = pd.read_excel(uploaded_file)
   return data
@@ -21,12 +28,7 @@ def extract_data(data):
 
   return new_data
 
-def isfloat(value):
-  try:
-    float(value)
-    return True
-  except ValueError:
-    return False
+
 
   
 def main():
