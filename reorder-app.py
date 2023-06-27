@@ -1,20 +1,34 @@
+# %% [markdown]
+# # Build a web application to extract data from an excel file
+
+# %% [markdown]
+# ### Import Libraries
+
+# %%
 import streamlit as st
 import pandas as pd
-#import openpyxl
 
+# %% [markdown]
+# ### Define sub functions
 
+# %%
 def isfloat(value):
   try:
     float(value)
     return True
   except ValueError:
     return False
-
+  
 def load_data(uploaded_file):
   data = pd.read_excel(uploaded_file)
-  return data
+  return data 
 
+# %% [markdown]
+# ### Extract Data from excel file
+
+# %%
 def extract_data(data):
+  
   new_data = pd.DataFrame(columns=['Product Code', 'Unit Sold', 'Balance Stock'])
   i = 0
   for index, row in data.iterrows():
@@ -25,26 +39,21 @@ def extract_data(data):
     if isinstance(product_code, str) and isfloat(unit_sold):
         new_data.loc[i] = [product_code, abs(unit_sold), balance_stock]
         i = i + 1
-
+        
   return new_data
 
 def extract_reorder_data(new_data):
-  reorder_data = pd.DataFrame(columns=['Product Code', 'Unit Sold', 'Balance Stock'])
-  j = 0
-  for index, row in new_data.iterrows():
-    product_code = new_data.at[index, "Product Code"]
-    unit_sold = new_data.at[index, "Unit Sold"]
-    balance_stock = new_data.at[index, "Balance Stock"]
-
-    if unit_sold >= balance_stock:
-        reorder_data.loc[j] = [product_code, unit_sold, balance_stock]
-        j = j + 1
+  reorder_data = new_data.query('`Unit Sold` >= `Balance Stock`')
   return reorder_data
 
-  
+# %% [markdown]
+# ### Main Function
+
+# %%
 def main():
   st.header("Please Order Stocks Display in the Table")
   uploaded_file = st.file_uploader("Choose a Excel file", type="xlsx")
+  
   if uploaded_file:
     try:
       data = load_data(uploaded_file)
@@ -56,3 +65,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
