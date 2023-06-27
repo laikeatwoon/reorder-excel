@@ -1,2 +1,2 @@
 # reorder-excel
-Create an excel with items that needs to reorder
+Read a stock movement .xlsx file and extract items that need to reoder
