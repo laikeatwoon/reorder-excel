@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import openpyxl
+#import openpyxl
 
 
 def isfloat(value):
