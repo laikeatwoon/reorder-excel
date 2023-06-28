@@ -12,6 +12,7 @@ import pandas as pd
 # ### Define sub functions
 
 # %%
+#Check is the value an Integer or not
 def isInt(value):
   try:
     int(value)
@@ -32,14 +33,15 @@ def extract_data(data):
   new_data = pd.DataFrame(columns=['Product Code', 'Unit Sold', 'Balance Stock'])
   i = 0
   for index, row in data.iterrows():
-    product_code = data.at[index, "Unnamed: 1"]
-    unit_sold = data.at[index, "Unnamed: 40"]
-    balance_stock = data.at[index, "Unnamed: 61"]
+    product_code = data.at[index, 'Unnamed: 1']
+    unit_sold = data.at[index, 'Unnamed: 40']
+    balance_stock = data.at[index, 'Unnamed: 61']
 
     if isinstance(product_code, str) and isInt(unit_sold):
         new_data.loc[i] = [product_code, abs(unit_sold), balance_stock]
         i = i + 1
-        
+
+  #Convert the data from Float to Int      
   new_data[['Unit Sold', 'Balance Stock']] = new_data[['Unit Sold', 'Balance Stock']].astype(int)
   
   return new_data
