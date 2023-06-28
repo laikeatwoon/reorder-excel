@@ -40,6 +40,8 @@ def extract_data(data):
         new_data.loc[i] = [product_code, abs(unit_sold), balance_stock]
         i = i + 1
         
+  new_data[['Unit Sold', 'Balance Stock']] = new_data[['Unit Sold', 'Balance Stock']].astype(int)
+  
   return new_data
 
 def extract_reorder_data(new_data):
