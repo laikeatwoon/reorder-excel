@@ -29,6 +29,25 @@ def load_data(uploaded_file):
 
 # %%
 def extract_data(data):
+    # Create a New Data with Columns with Information
+    new_data = data.loc[:,['Unnamed: 1', 'Unnamed: 40', 'Unnamed: 61']]
+
+    # Drop rows with empty data
+    new_data = new_data.dropna()
+
+    # rename columns
+    new_data = new_data.rename(columns={'Unnamed: 1': 'Product Code'})
+    new_data = new_data.rename(columns={'Unnamed: 40': 'Unit Sold'})
+    new_data = new_data.rename(columns={'Unnamed: 61': 'Balance Stock'})
+
+    new_data['Unit Sold'] = new_data['Unit Sold'].astype(int).abs()
+    new_data['Balance Stock'] = new_data['Balance Stock'].astype(int)
+
+    return new_data
+
+
+# %%
+def extract_data_V2(data):
   
   new_data = pd.DataFrame(columns=['Product Code', 'Unit Sold', 'Balance Stock'])
   i = 0
