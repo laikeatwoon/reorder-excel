@@ -12,9 +12,9 @@ import pandas as pd
 # ### Define sub functions
 
 # %%
-def isfloat(value):
+def isInt(value):
   try:
-    float(value)
+    int(value)
     return True
   except ValueError:
     return False
@@ -36,7 +36,7 @@ def extract_data(data):
     unit_sold = data.at[index, "Unnamed: 40"]
     balance_stock = data.at[index, "Unnamed: 61"]
 
-    if isinstance(product_code, str) and isfloat(unit_sold):
+    if isinstance(product_code, str) and isInt(unit_sold):
         new_data.loc[i] = [product_code, abs(unit_sold), balance_stock]
         i = i + 1
         
