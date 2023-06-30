@@ -94,12 +94,14 @@ def extract_google_sheet(sheet_name_range):
 def main():
   
   st.set_page_config(layout="wide")
+  st.markdown("<style>div.st-cc{background-color: #f5f5f5;}</style>", unsafe_allow_html=True)
 
   col1, col2 = st.columns([2, 3])
   
   with col1:
 
     with st.expander("DF Items"):
+      
       try:
         google_data = extract_google_sheet("Loose Cargo!A1:C70")
         st.dataframe(google_data, use_container_width=True)
