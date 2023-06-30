@@ -94,7 +94,16 @@ def extract_google_sheet(sheet_name_range):
 def main():
   
   st.set_page_config(layout="wide")
-  st.markdown("<style>div.st-cc{background-color: #f5f5f5;}</style>", unsafe_allow_html=True)
+  st.markdown(
+    """
+    <style>
+        .streamlit-expander {
+            background-color: #f5f5f5;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
   col1, col2 = st.columns([2, 3])
   
