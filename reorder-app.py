@@ -28,10 +28,16 @@ def isInt(value):
   except ValueError:
     return False
   
-#Load Excel File  
+#Load Excel File and print the error message from the read_excel function  
 def load_data(uploaded_file):
-  data = pd.read_excel(uploaded_file)
-  return data 
+  try:
+    data = pd.read_excel(uploaded_file)
+    return data
+  except Exception as e:
+    print(e)
+    return None
+
+
 
 # %% [markdown]
 # ### Extract Data from excel file
@@ -113,6 +119,27 @@ def extract_date(new_data):
 
   return date_list
 
+# %% [markdown]
+# ### A function compare a list of product code with a dataframe of product code
+# ### and return a dataframe with a new column name Ordered
+# ### The value of the new column is Yes or No
+# ### Yes means the product code is in the list
+# ### No means the product code is not in the list
+def compare_product_code(product_code_list, df):
+  # Create a new column name Ordered
+  df['Ordered'] = ''
+
+  # Loop through the product_code_list
+  for i in product_code_list:
+      # Check if the product code is in the dataframe
+      if i in df['Product Code'].values:
+          # If the product code is in the dataframe, change the value of the Ordered column to Yes
+          df.loc[df['Product Code'] == i, 'Ordered'] = 'Yes'
+      else:
+          # If the product code is not in the dataframe, change the value of the Ordered column to No
+          df.loc[df['Product Code'] == i, 'Ordered'] = 'No'
+
+  return df
 
 # %% [markdown]
 # ### Main Function
@@ -124,49 +151,72 @@ def main():
 
   st.title("Reorder App")
 
-  #write a markdown to include css style
-  st.markdown(
-    """
-    <style>
-        .streamlit-expander {
-            background-color: #f5f5f5;
-        }
-      </style>  
-    """,
-    unsafe_allow_html=True,    
-  )
-
   #create 2 columns
   col1, col2 = st.columns([2, 3])
+  
+  #create a empty google_data_product_code list
+  google_data_product_list = []
+
 
   with col1:
 
     with st.expander("DF Items"):
       
       try:
+
+        #extract data from google sheet
         google_data = extract_google_sheet("Loose Cargo!A1:C70")
         st.dataframe(google_data, use_container_width=True)
+
+      # extract product code from google_data and add into google_data_product_list
+        for i in google_data['Product Code']:
+          google_data_product_list.append(i)
+        
+
       except Exception as e:
         st.warning("Not able to load Google Sheet.")  
     
     with st.expander("Shandong Items"):
       try:
+
+        #extract data from google sheet
         google_data = extract_google_sheet("Shandong!A1:C70")
         st.dataframe(google_data, use_container_width=True)
+
+        # extract product code from google_data and add into google_data_product_list
+        for i in google_data['Product Code']:
+          google_data_product_list.append(i)
+
+
       except Exception as e:
         st.warning("Not able to load Google Sheet.") 
 
     with st.expander("Taiwan Glass"):
       try:
+        
+        #extract data from google sheet
         google_data = extract_google_sheet("Taiwan!A1:C70")
         st.dataframe(google_data, use_container_width=True)
+
+        #extract product code from google_data and add into google_data_product_list
+        for i in google_data['Product Code']:
+          google_data_product_list.append(i)
+
+
       except Exception as e:
         st.warning("Not able to load Google Sheet.") 
 
     with st.expander("Lug Cap"):
       try:
+        
+        #extract data from google sheet
         google_data = extract_google_sheet("Lug Cap!A1:C70")
         st.dataframe(google_data, use_container_width=True)
+
+        #extract product code from google_data and add into google_data_product_list
+        for i in google_data['Product Code']:
+          google_data_product_list.append(i)
+        
       except Exception as e:
         st.warning("Not able to load Google Sheet.") 
        
@@ -180,15 +230,21 @@ def main():
         data = load_data(uploaded_file)
         new_data = extract_data(data)
         
+        #extract date
         date_list = extract_date(data)
 
         #check if date_list has 2 values
         if len(date_list) == 2:
           st.write("From ", date_list[0], " To ", date_list[1])
 
-
+        #display reorder data
         reorder_data = extract_reorder_data(new_data)
+
+        #compare data
+        reorder_data = compare_product_code(google_data_product_list, reorder_data)
+
         st.table(reorder_data)
+
       except Exception as e:
         st.warning("The file is not in the correct format.")
 
