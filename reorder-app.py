@@ -18,7 +18,6 @@ from google.oauth2 import service_account
 # %% [markdown]
 # ### Define sub functions
 
-
 # %%
 #Check is the value an Integer or not
 def isInt(value):
