@@ -181,6 +181,10 @@ def main():
         new_data = extract_data(data)
         
         date_list = extract_date(data)
+
+        #print the length of date_list
+        st.write("Date List Length: ", len(date_list))
+
         #check if date_list has 2 values
         if len(date_list) == 2:
           st.write("From ", date_list[0], " To ", date_list[1])
