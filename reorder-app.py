@@ -18,6 +18,7 @@ from google.oauth2 import service_account
 # %% [markdown]
 # ### Define sub functions
 
+
 # %%
 #Check is the value an Integer or not
 def isInt(value):
@@ -88,25 +89,56 @@ def extract_google_sheet(sheet_name_range):
   return df
 
 # %% [markdown]
+# ### Extract Date from dataframes
+def extract_date(new_data):
+  # Get the last row of new_df
+  last_row = new_data.iloc[-1]
+
+  # Get the value of the last row
+  last_row_value = last_row[0]
+
+  # I want to find all the date inside the last row value
+  # Split the last row value into a list
+  last_row_value_list = last_row_value.split()
+
+  # Create a new list to store the date
+  date_list = []
+
+  # Loop through the last_row_value_list
+  for i in last_row_value_list:
+      # Check if the value is a date
+      if '/' in i:
+          # If it is a date, append it to the date_list
+          date_list.append(i)
+
+  return date_list
+
+
+# %% [markdown]
 # ### Main Function
 
 # %%
 def main():
   
   st.set_page_config(layout="wide")
+
+  st.title("Reorder App")
+
+  #write a markdown to include css style
   st.markdown(
     """
     <style>
         .streamlit-expander {
             background-color: #f5f5f5;
         }
-    </style>
+      </style>  
     """,
-    unsafe_allow_html=True,
-)
+    unsafe_allow_html=True,    
+  )
 
+  #create 2 columns
   col1, col2 = st.columns([2, 3])
-  
+
   with col1:
 
     with st.expander("DF Items"):
@@ -144,8 +176,16 @@ def main():
     
     if uploaded_file:
       try:
+        #load data
         data = load_data(uploaded_file)
         new_data = extract_data(data)
+        
+        date_list = extract_date(data)
+        #check if date_list has 2 values
+        if len(date_list) == 2:
+          st.write("From ", date_list[0], " To ", date_list[1])
+
+
         reorder_data = extract_reorder_data(new_data)
         st.table(reorder_data)
       except Exception as e:
