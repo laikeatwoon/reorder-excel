@@ -33,7 +33,7 @@ def load_data(uploaded_file):
     data = pd.read_excel(uploaded_file)
     return data
   except Exception as e:
-    print(e)
+    st.write(e)
     return None
 
 
@@ -74,10 +74,17 @@ def extract_reorder_data(new_data):
 # %%
 def extract_google_sheet(sheet_name_range):
 
+  # The keyfile is a dictionary, so we can access the individual keys
+  # by using the keyfile_dic variable we just created.
   keyfile_dic = st.secrets["keyfile"]
+
+  # Initialize the credentials variable.
   creds = None
+  
+  # Create credentials using the keyfile dictionary.
   creds = service_account.Credentials.from_service_account_info(keyfile_dic)
 
+# Build the service variable using the credentials we just created.
   service = build('sheets', 'v4', credentials=creds)
 
   # Call the Sheets API
@@ -85,10 +92,14 @@ def extract_google_sheet(sheet_name_range):
   result = sheet.values().get(spreadsheetId=st.secrets["SAMPLE_SPREADSHEET_ID"],
                               range=sheet_name_range).execute()
   
+  # Get the data from the Google Sheet
   data = result.get('values', [])
   headers = data.pop(0)
 
+  # Convert the data into a Pandas dataframe
   df = pd.DataFrame(data, columns=headers)
+
+  # Drop rows that are entirely empty
   df.dropna(how='all', inplace=True)
 
   return df
@@ -146,48 +157,53 @@ def compare_product_code(product_code_list, df):
 
 # %%
 def main():
+
+  st.set_page_config(layout="wide")
   
   # This code displays the title of the app
   st.title("Reorder App")
 
-  st.set_page_config(layout="wide")
-
   #create 2 columns
   col1, col2 = st.columns([2, 3])
   
-  #create a empty google_data_product_code list
-  google_data_product_list = []
-
-
+  #create a empty google_data_product_code list in a session state
+  if 'google_data_product_list' not in st.session_state:
+    st.session_state.google_data_product_list = []
+ 
   with col1:
-
+    
     with st.expander("DF Items"):
-      
+
       try:
-
-        #extract data from google sheet
-        google_data = extract_google_sheet("Loose Cargo!A1:C70")
-        st.dataframe(google_data, use_container_width=True)
-
-      # extract product code from google_data and add into google_data_product_list
-        for i in google_data['Product Code']:
-          google_data_product_list.append(i)
+        if 'google_data_df' not in st.session_state:
+          #extract data from google sheet
+          google_data = extract_google_sheet("Loose Cargo!A1:C70")
+          st.session_state.google_data_df = google_data
+          #extract product code from google_data and add into google_data_product_list
+          for i in google_data['Product Code']:
+            st.session_state.google_data_product_list.append(i)
+        else: 
+          google_data = st.session_state.google_data_df
         
-
+        st.dataframe(google_data, use_container_width=True)
+      
       except Exception as e:
         st.warning("Not able to load Google Sheet.")  
     
     with st.expander("Shandong Items"):
       try:
 
-        #extract data from google sheet
-        google_data = extract_google_sheet("Shandong!A1:C70")
+        if 'google_data_sd' not in st.session_state:
+          #extract data from google sheet
+          google_data = extract_google_sheet("Shandong!A1:C70")
+          st.session_state.google_data_sd = google_data
+          #extract product code from google_data and add into google_data_product_list
+          for i in google_data['Product Code']:
+            st.session_state.google_data_product_list.append(i)
+        else:
+          google_data = st.session_state.google_data_sd
+
         st.dataframe(google_data, use_container_width=True)
-
-        # extract product code from google_data and add into google_data_product_list
-        for i in google_data['Product Code']:
-          google_data_product_list.append(i)
-
 
       except Exception as e:
         st.warning("Not able to load Google Sheet.") 
@@ -195,31 +211,39 @@ def main():
     with st.expander("Taiwan Glass"):
       try:
         
-        #extract data from google sheet
-        google_data = extract_google_sheet("Taiwan!A1:C70")
+        if 'google_data_tw' not in st.session_state:
+          #extract data from google sheet
+          google_data = extract_google_sheet("Taiwan!A1:C70")
+          st.session_state.google_data_tw = google_data
+          #extract product code from google_data and add into google_data_product_list
+          for i in google_data['Product Code']:
+            st.session_state.google_data_product_list.append(i)
+        else:
+          google_data = st.session_state.google_data_tw
+          
         st.dataframe(google_data, use_container_width=True)
-
-        #extract product code from google_data and add into google_data_product_list
-        for i in google_data['Product Code']:
-          google_data_product_list.append(i)
-
 
       except Exception as e:
         st.warning("Not able to load Google Sheet.") 
 
     with st.expander("Lug Cap"):
       try:
-        
-        #extract data from google sheet
-        google_data = extract_google_sheet("Lug Cap!A1:C70")
-        st.dataframe(google_data, use_container_width=True)
 
-        #extract product code from google_data and add into google_data_product_list
-        for i in google_data['Product Code']:
-          google_data_product_list.append(i)
+        if 'google_data_lc' not in st.session_state:
+          #extract data from google sheet
+          google_data = extract_google_sheet("Lug Cap!A1:C70")
+          st.session_state.google_data_lc = google_data
+          #extract product code from google_data and add into google_data_product_list
+          for i in google_data['Product Code']:
+            st.session_state.google_data_product_list.append(i)
+        else:
+          google_data = st.session_state.google_data_lc
+
+        st.dataframe(google_data, use_container_width=True)
         
       except Exception as e:
         st.warning("Not able to load Google Sheet.") 
+
        
   with col2:
     st.header("Please Order Stocks Display in the Table")
@@ -242,7 +266,7 @@ def main():
         reorder_data = extract_reorder_data(new_data)
 
         #compare data
-        reorder_data = compare_product_code(google_data_product_list, reorder_data)
+        reorder_data = compare_product_code(st.session_state.google_data_product_list, reorder_data)
 
         st.table(reorder_data)
 
