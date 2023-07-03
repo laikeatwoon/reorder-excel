@@ -134,6 +134,7 @@ def compare_product_code(product_code_list, df):
       if i in df['Product Code'].values:
           # If the product code is in the dataframe, change the value of the Ordered column to Yes
           df.loc[df['Product Code'] == i, 'Ordered'] = 'Yes'
+          
       else:
           # If the product code is not in the dataframe, change the value of the Ordered column to No
           df.loc[df['Product Code'] == i, 'Ordered'] = 'No'
@@ -146,9 +147,10 @@ def compare_product_code(product_code_list, df):
 # %%
 def main():
   
-  st.set_page_config(layout="wide")
-
+  # This code displays the title of the app
   st.title("Reorder App")
+
+  st.set_page_config(layout="wide")
 
   #create 2 columns
   col1, col2 = st.columns([2, 3])
