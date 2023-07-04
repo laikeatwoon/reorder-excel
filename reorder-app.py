@@ -96,8 +96,14 @@ def extract_google_sheet(sheet_name_range):
   data = result.get('values', [])
   headers = data.pop(0)
 
+  # If there are no values in the Google Sheet, create an empty list
+  data.append([''] * len(headers))
+
   # Convert the data into a Pandas dataframe
   df = pd.DataFrame(data, columns=headers)
+
+  # Drop the last row if it is empty
+  df.drop(df.tail(1).index, inplace=True)
 
   # Drop rows that are entirely empty
   df.dropna(how='all', inplace=True)
@@ -135,22 +141,23 @@ def extract_date(new_data):
 # ### The value of the new column is Yes or No
 # ### Yes means the product code is in the list
 # ### No means the product code is not in the list
-def compare_product_code(product_code_list, df):
-  # Create a new column name Ordered
-  df['Ordered'] = ''
+def add_ordered_column(product_code_list, df):
+  # Create a copy of the slice of the dataframe and then add the new column name Ordered without SettingWithCopyWarning
+  new_df = df.copy()
+  new_df.loc[:, 'Ordered'] = ''
 
   # Loop through the product_code_list
   for i in product_code_list:
       # Check if the product code is in the dataframe
-      if i in df['Product Code'].values:
+      if i in new_df['Product Code'].values:
           # If the product code is in the dataframe, change the value of the Ordered column to Yes
-          df.loc[df['Product Code'] == i, 'Ordered'] = 'Yes'
+          new_df.loc[df['Product Code'] == i, 'Ordered'] = 'Yes'
           
       else:
           # If the product code is not in the dataframe, change the value of the Ordered column to No
-          df.loc[df['Product Code'] == i, 'Ordered'] = 'No'
+          new_df.loc[df['Product Code'] == i, 'Ordered'] = 'No'
 
-  return df
+  return new_df
 
 # %% [markdown]
 # ### Main Function
@@ -244,10 +251,24 @@ def main():
       except Exception as e:
         st.warning("Not able to load Google Sheet.") 
 
+    ## A button to remove certain variable in the session state and refresh the page
+    if st.button("Refresh"):
+      if 'google_data_df' in st.session_state:
+        del st.session_state.google_data_df
+      if 'google_data_sd' in st.session_state:
+        del st.session_state.google_data_sd
+      if 'google_data_tw' in st.session_state:
+        del st.session_state.google_data_tw
+      if 'google_data_lc' in st.session_state:
+        del st.session_state.google_data_lc
+      if 'google_data_product_list' in st.session_state:
+        del st.session_state.google_data_product_list
+      st.experimental_rerun()
+    
        
   with col2:
     st.header("Please Order Stocks Display in the Table")
-    uploaded_file = st.file_uploader("Choose a Excel file", type="xlsx")
+    uploaded_file = st.file_uploader("Choose a Excel file", type="xlsx")  
     
     if uploaded_file:
       try:
@@ -256,22 +277,29 @@ def main():
         new_data = extract_data(data)
         
         #extract date
-        date_list = extract_date(data)
+        st.session_state.date_list = extract_date(data)
 
-        #check if date_list has 2 values
-        if len(date_list) == 2:
-          st.write("From ", date_list[0], " To ", date_list[1])
-
-        #display reorder data
-        reorder_data = extract_reorder_data(new_data)
-
-        #compare data
-        reorder_data = compare_product_code(st.session_state.google_data_product_list, reorder_data)
-
-        st.table(reorder_data)
-
+        #extract reorder data
+        st.session_state.reorder_data = extract_reorder_data(new_data)
+        
       except Exception as e:
         st.warning("The file is not in the correct format.")
+
+
+    #display date list if it is in the session state
+    if 'date_list' in st.session_state:
+        if len(st.session_state.date_list) == 2:
+          st.write("From ", st.session_state.date_list[0], " To ", st.session_state.date_list[1])
+
+    #display reorder data if it is in the session state
+    if 'reorder_data' in st.session_state:
+        #add ordered column
+        st.session_state.reorder_data = add_ordered_column(
+          st.session_state.google_data_product_list, st.session_state.reorder_data)
+        
+        st.table(st.session_state.reorder_data)
+
+  
 
 if __name__ == "__main__":
     main()
