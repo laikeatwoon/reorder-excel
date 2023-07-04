@@ -107,7 +107,7 @@ def extract_google_sheet(sheet_name_range):
 
   # Drop rows that are entirely empty
   df.dropna(how='all', inplace=True)
-
+  
   return df
 
 # %% [markdown]
