@@ -10,12 +10,6 @@
 # import libraries
 import streamlit as st
 import pandas as pd
-import numpy as np
-import base64
-import io
-import os
-import time
-import datetime
 
 
 # This function will extract data from dataframe and return a dataframe
@@ -46,6 +40,12 @@ def extract_top50(df):
     top50_df = df.sort_values(by=['Unit Sold'], ascending=False).head(50)
     top50_df = top50_df.reset_index(drop=True)
     return top50_df
+
+# this function will extract the top 50 Unit Sold from dataframe and return a dataframe
+def extract_top200(df):
+    top200_df = df.sort_values(by=['Unit Sold'], ascending=False).head(200)
+    top200_df = top200_df.reset_index(drop=True)
+    return top200_df
 
 # this function will extract Zero Unit Sold from dataframe and return a dataframe
 def extract_deadstock(df):
@@ -78,6 +78,11 @@ def main():
     if 'uploaded_file' not in st.session_state:
         st.session_state.uploaded_file = None
 
+    #create download file name in session state
+    if 'download_csv' not in st.session_state:
+        st.session_state.download_csv = "stock.csv"
+
+
 
     with col1:
         
@@ -85,16 +90,25 @@ def main():
         if st.button("All Products"):
             df = st.session_state.df
             st.session_state.df_display = df
+            st.session_state.download_csv = "stock.csv"
 
         if st.button("Top50 Hot Selling Products"):
             df = st.session_state.df
             df = extract_top50(df)
             st.session_state.df_display = df
+            st.session_state.download_csv = "top50.csv"
+
+        if st.button("Top200 Hot Selling Products"):
+            df = st.session_state.df
+            df = extract_top200(df)
+            st.session_state.df_display = df
+            st.session_state.download_csv = "top200.csv"
 
         if st.button("Dead Stock Products"):
             df = st.session_state.df
             df = extract_deadstock(df)
             st.session_state.df_display = df
+            st.session_state.download_csv = "deadstock.csv"
 
         # create a button to refresh the page
         # clear all the session state
@@ -102,7 +116,7 @@ def main():
             for key in st.session_state.keys():
                 del st.session_state[key]
             st.experimental_rerun()
-            
+
 
 
     with col2:
@@ -138,7 +152,8 @@ def main():
 
         # use streamlit to download the dataframe as csv file
         csv = st.session_state.df_display.to_csv(index=False)
-        st.download_button("Press to Download", csv, "stock.csv", "text/csv", key='download-csv')
+        filename = st.session_state.download_csv
+        st.download_button("Press to Download", csv, filename, "text/csv", key='download-csv')
 
         # display the dataframe in a table
         st.table(st.session_state.df_display)
