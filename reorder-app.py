@@ -142,11 +142,12 @@ def extract_date(new_data):
   return date_list
 
 # %% [markdown]
-# ### A function compare a list of product code with a dataframe of product code
-# ### and return a dataframe with a new column name Ordered
-# ### The value of the new column is Yes or No
-# ### Yes means the product code is in the list
-# ### No means the product code is not in the list
+# A function compare a list of product code with a dataframe of product code
+# and return a dataframe with a new column name Ordered
+# The value of the new column is Yes or No
+# Yes means the product code is in the list
+# No means the product code is not in the list
+
 def add_ordered_column(product_code_list, df):
   # Create a copy of the slice of the dataframe and then add the new column name Ordered without SettingWithCopyWarning
   new_df = df.copy()
