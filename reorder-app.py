@@ -49,13 +49,19 @@ def extract_data(data):
     # Drop rows with empty data
     new_data = new_data.dropna()
 
-    # rename columns
-    new_data = new_data.rename(columns={'Unnamed: 1': 'Product Code'})
-    new_data = new_data.rename(columns={'Unnamed: 40': 'Unit Sold'})
-    new_data = new_data.rename(columns={'Unnamed: 61': 'Balance Stock'})
+    # if new_data is not empty
+    if new_data.empty == False:
+      # rename columns
+      new_data = new_data.rename(columns={'Unnamed: 1': 'Product Code'})
+      new_data = new_data.rename(columns={'Unnamed: 40': 'Unit Sold'})
+      new_data = new_data.rename(columns={'Unnamed: 61': 'Balance Stock'})
 
-    new_data['Unit Sold'] = new_data['Unit Sold'].astype(int).abs()
-    new_data['Balance Stock'] = new_data['Balance Stock'].astype(int)
+      new_data['Unit Sold'] = new_data['Unit Sold'].astype(int).abs()
+      new_data['Balance Stock'] = new_data['Balance Stock'].astype(int)
+    
+    else:
+      # create a new_data with 3 columns named Product Code, Unit Sold, Balance Stock
+      new_data = pd.DataFrame(columns=['Product Code', 'Unit Sold', 'Balance Stock'])
 
     return new_data
 
@@ -144,10 +150,12 @@ def extract_date(new_data):
 def add_ordered_column(product_code_list, df):
   # Create a copy of the slice of the dataframe and then add the new column name Ordered without SettingWithCopyWarning
   new_df = df.copy()
-  new_df.loc[:, 'Ordered'] = ''
 
-  # Loop through the product_code_list
-  for i in product_code_list:
+  # if new_df is not empty
+  if new_df.empty == False:
+    new_df.loc[:, 'Ordered'] = ''
+    # Loop through the product_code_list
+    for i in product_code_list:
       # Check if the product code is in the dataframe
       if i in new_df['Product Code'].values:
           # If the product code is in the dataframe, change the value of the Ordered column to Yes
@@ -156,6 +164,7 @@ def add_ordered_column(product_code_list, df):
       else:
           # If the product code is not in the dataframe, change the value of the Ordered column to No
           new_df.loc[df['Product Code'] == i, 'Ordered'] = 'No'
+
 
   return new_df
 
