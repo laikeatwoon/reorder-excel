@@ -72,6 +72,10 @@ def extract_data(data):
 # %%
 def extract_reorder_data(new_data):
   reorder_data = new_data.query('`Unit Sold` >= `Balance Stock`')
+
+  # reinitalize the index
+  reorder_data = reorder_data.reset_index(drop=True)
+  
   return reorder_data
 
 # %% [markdown]
