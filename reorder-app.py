@@ -198,7 +198,7 @@ def main():
       try:
         if 'google_data_df' not in st.session_state:
           #extract data from google sheet
-          google_data = extract_google_sheet("Loose Cargo!A1:C70")
+          google_data = extract_google_sheet("Loose Cargo!A1:C200")
           st.session_state.google_data_df = google_data
           #extract product code from google_data and add into google_data_product_list
           for i in google_data['Product Code']:
@@ -216,7 +216,7 @@ def main():
 
         if 'google_data_sd' not in st.session_state:
           #extract data from google sheet
-          google_data = extract_google_sheet("Shandong!A1:C70")
+          google_data = extract_google_sheet("Shandong!A1:C200")
           st.session_state.google_data_sd = google_data
           #extract product code from google_data and add into google_data_product_list
           for i in google_data['Product Code']:
@@ -234,7 +234,7 @@ def main():
         
         if 'google_data_tw' not in st.session_state:
           #extract data from google sheet
-          google_data = extract_google_sheet("Taiwan!A1:C70")
+          google_data = extract_google_sheet("Taiwan!A1:C200")
           st.session_state.google_data_tw = google_data
           #extract product code from google_data and add into google_data_product_list
           for i in google_data['Product Code']:
@@ -252,7 +252,7 @@ def main():
 
         if 'google_data_lc' not in st.session_state:
           #extract data from google sheet
-          google_data = extract_google_sheet("Lug Cap!A1:C70")
+          google_data = extract_google_sheet("Lug Cap!A1:C200")
           st.session_state.google_data_lc = google_data
           #extract product code from google_data and add into google_data_product_list
           for i in google_data['Product Code']:
