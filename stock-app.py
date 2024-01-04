@@ -41,11 +41,17 @@ def extract_top50(df):
     top50_df = top50_df.reset_index(drop=True)
     return top50_df
 
-# this function will extract the top 50 Unit Sold from dataframe and return a dataframe
+# this function will extract the top 200 Unit Sold from dataframe and return a dataframe
 def extract_top200(df):
     top200_df = df.sort_values(by=['Unit Sold'], ascending=False).head(200)
     top200_df = top200_df.reset_index(drop=True)
     return top200_df
+
+# this function will extract the top 1000 Unit Sold from dataframe and return a dataframe
+def extract_top1000(df):
+    top1000_df = df.sort_values(by=['Unit Sold'], ascending=False).head(1000)
+    top1000_df = top1000_df.reset_index(drop=True)
+    return top1000_df
 
 # this function will extract Zero Unit Sold from dataframe and return a dataframe
 def extract_deadstock(df):
@@ -103,6 +109,12 @@ def main():
             df = extract_top200(df)
             st.session_state.df_display = df
             st.session_state.download_csv = "top200.csv"
+
+        if st.button("Top1000 Hot Selling Products"):
+            df = st.session_state.df
+            df = extract_top1000(df)
+            st.session_state.df_display = df
+            st.session_state.download_csv = "top1000.csv"
 
         if st.button("Dead Stock Products"):
             df = st.session_state.df
