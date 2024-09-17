@@ -277,9 +277,9 @@ def main():
         del st.session_state.google_data_lc
       if 'google_data_product_list' in st.session_state:
         del st.session_state.google_data_product_list
-      #st.experimental_rerun()
       st.rerun()
-    
+      #st.experimental_rerun()
+      
        
   with col2:
     st.header("Please Order Stocks Display in the Table")
