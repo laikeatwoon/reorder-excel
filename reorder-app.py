@@ -183,15 +183,12 @@ def main():
   
   # This code displays the title of the app
   st.title("Reorder App")
-
-  #create 2 columns
-  col1, col2 = st.columns([2, 3])
   
   #create a empty google_data_product_code list in a session state
   if 'google_data_product_list' not in st.session_state:
     st.session_state.google_data_product_list = []
  
-  with col1:
+  with st.sidebar:
     
     with st.expander("DF Items"):
 
@@ -281,7 +278,7 @@ def main():
       #st.experimental_rerun()
       
        
-  with col2:
+  with st._main:
     st.header("Please Order Stocks Display in the Table")
     uploaded_file = st.file_uploader("Choose a Excel file", type="xlsx")  
     
