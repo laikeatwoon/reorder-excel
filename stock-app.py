@@ -60,14 +60,12 @@ def extract_deadstock(df):
     return deadstock_df
 
 
-
 # Define Main Function
 def main():
 
     st.set_page_config(page_title="Stock App", layout="wide")
 
     st.title("Stock App")
-
     #create 2 columns
     col1, col2 = st.columns([2, 3])
 
@@ -87,8 +85,6 @@ def main():
     #create download file name in session state
     if 'download_csv' not in st.session_state:
         st.session_state.download_csv = "stock.csv"
-
-
 
     with col1:
         
@@ -130,7 +126,6 @@ def main():
             st.experimental_rerun()
 
 
-
     with col2:
 
         if st.session_state.uploaded_file is None:
@@ -169,12 +164,6 @@ def main():
 
         # display the dataframe in a table
         st.table(st.session_state.df_display)
-
-       
-
-
-       
-
 
 
 if __name__ == "__main__":
