@@ -127,7 +127,8 @@ def extract_date(new_data):
   last_row = new_data.iloc[-1]
 
   # Get the value of the last row
-  last_row_value = last_row[0]
+  # last_row_value = last_row[0]
+  last_row_value = last_row.iloc[0]
 
   # I want to find all the date inside the last row value
   # Split the last row value into a list
