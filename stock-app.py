@@ -88,7 +88,7 @@ def main():
 
     with col1:
         
-        # create a button to manupulate the dataframe
+        # create a button to manipulate the dataframe
         if st.button("All Products"):
             df = st.session_state.df
             st.session_state.df_display = df
