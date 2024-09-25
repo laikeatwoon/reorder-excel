@@ -73,7 +73,7 @@ def extract_data(data):
 def extract_reorder_data(new_data):
   reorder_data = new_data.query('`Unit Sold` >= `Balance Stock`')
 
-  # reinitalize the index
+  # reinitialize the index
   reorder_data = reorder_data.reset_index(drop=True)
   
   return reorder_data
@@ -89,13 +89,13 @@ def extract_google_sheet(sheet_name_range):
   keyfile_dic = st.secrets["keyfile"]
 
   # Initialize the credentials variable.
-  creds = None
+  cred = None
   
   # Create credentials using the keyfile dictionary.
-  creds = service_account.Credentials.from_service_account_info(keyfile_dic)
+  cred = service_account.Credentials.from_service_account_info(keyfile_dic)
 
 # Build the service variable using the credentials we just created.
-  service = build('sheets', 'v4', credentials=creds)
+  service = build('sheets', 'v4', credentials=cred)
 
   # Call the Sheets API
   sheet = service.spreadsheets()
@@ -121,7 +121,7 @@ def extract_google_sheet(sheet_name_range):
   return df
 
 # %% [markdown]
-# ### Extract Date from dataframes
+# ### Extract Date from dataframe
 def extract_date(new_data):
   # Get the last row of new_df
   last_row = new_data.iloc[-1]
