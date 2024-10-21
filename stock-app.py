@@ -60,14 +60,12 @@ def extract_deadstock(df):
     return deadstock_df
 
 
-
 # Define Main Function
 def main():
 
     st.set_page_config(page_title="Stock App", layout="wide")
 
     st.title("Stock App")
-
     #create 2 columns
     col1, col2 = st.columns([2, 3])
 
@@ -88,11 +86,9 @@ def main():
     if 'download_csv' not in st.session_state:
         st.session_state.download_csv = "stock.csv"
 
-
-
     with col1:
         
-        # create a button to manupulate the dataframe
+        # create a button to manipulate the dataframe
         if st.button("All Products"):
             df = st.session_state.df
             st.session_state.df_display = df
@@ -128,7 +124,6 @@ def main():
             for key in st.session_state.keys():
                 del st.session_state[key]
             st.experimental_rerun()
-
 
 
     with col2:
@@ -169,12 +164,6 @@ def main():
 
         # display the dataframe in a table
         st.table(st.session_state.df_display)
-
-       
-
-
-       
-
 
 
 if __name__ == "__main__":

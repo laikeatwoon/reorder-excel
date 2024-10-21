@@ -73,7 +73,7 @@ def extract_data(data):
 def extract_reorder_data(new_data):
   reorder_data = new_data.query('`Unit Sold` >= `Balance Stock`')
 
-  # reinitalize the index
+  # reinitialize the index
   reorder_data = reorder_data.reset_index(drop=True)
   
   return reorder_data
@@ -89,13 +89,13 @@ def extract_google_sheet(sheet_name_range):
   keyfile_dic = st.secrets["keyfile"]
 
   # Initialize the credentials variable.
-  creds = None
+  cred = None
   
   # Create credentials using the keyfile dictionary.
-  creds = service_account.Credentials.from_service_account_info(keyfile_dic)
+  cred = service_account.Credentials.from_service_account_info(keyfile_dic)
 
 # Build the service variable using the credentials we just created.
-  service = build('sheets', 'v4', credentials=creds)
+  service = build('sheets', 'v4', credentials=cred)
 
   # Call the Sheets API
   sheet = service.spreadsheets()
@@ -121,13 +121,13 @@ def extract_google_sheet(sheet_name_range):
   return df
 
 # %% [markdown]
-# ### Extract Date from dataframes
+# ### Extract Date from dataframe
 def extract_date(new_data):
   # Get the last row of new_df
   last_row = new_data.iloc[-1]
 
   # Get the value of the last row
-  last_row_value = last_row[0]
+  last_row_value = last_row.iloc[0]
 
   # I want to find all the date inside the last row value
   # Split the last row value into a list
@@ -183,15 +183,12 @@ def main():
   
   # This code displays the title of the app
   st.title("Reorder App")
-
-  #create 2 columns
-  col1, col2 = st.columns([2, 3])
   
   #create a empty google_data_product_code list in a session state
   if 'google_data_product_list' not in st.session_state:
     st.session_state.google_data_product_list = []
  
-  with col1:
+  with st.sidebar:
     
     with st.expander("DF Items"):
 
@@ -277,10 +274,11 @@ def main():
         del st.session_state.google_data_lc
       if 'google_data_product_list' in st.session_state:
         del st.session_state.google_data_product_list
-      st.experimental_rerun()
-    
+      st.rerun()
+      #st.experimental_rerun()
+      
        
-  with col2:
+  with st._main:
     st.header("Please Order Stocks Display in the Table")
     uploaded_file = st.file_uploader("Choose a Excel file", type="xlsx")  
     
