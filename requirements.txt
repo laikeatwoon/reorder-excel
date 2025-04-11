@@ -1,5 +1,5 @@
-google_api_python_client==2.91.0
-pandas==2.2.3
-protobuf==3.20.3
-streamlit==1.44.1
+google_api_python_client
+pandas
+protobuf
+streamlit
 openpyxl
