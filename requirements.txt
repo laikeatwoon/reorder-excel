@@ -1,4 +1,5 @@
-google_api_python_client==2.91.0
-pandas==2.0.2
-protobuf==3.20.3
-streamlit==1.44.1
+pandas==1.5.3
+numpy==1.23.5
+streamlit
+google-api-python-client
+google-auth
