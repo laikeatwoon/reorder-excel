@@ -1,7 +1,5 @@
 .streamlit/secrets.toml
-Report_DF.xlsx
 .vscode/tasks.json
-Report_Lug_July_2023_3M.xlsx
 DF_3M.xlsx
-.venv
+venv/
 reorder-excel.code-workspace
