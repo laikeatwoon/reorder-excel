@@ -14,15 +14,6 @@ from google.oauth2 import service_account
 
 # %% [markdown]
 # ### Define sub functions
-
-# %%
-#Check is the value an Integer or not
-def isInt(value):
-  try:
-    int(value)
-    return True
-  except ValueError:
-    return False
   
 #Load Excel File and print the error message from the read_excel function  
 def load_data(uploaded_file):
@@ -32,7 +23,6 @@ def load_data(uploaded_file):
   except Exception as e:
     st.write(e)
     return None
-
 
 
 # %% [markdown]
@@ -49,9 +39,11 @@ def extract_data(data):
     # if new_data is not empty
     if new_data.empty == False:
       # rename columns
-      new_data = new_data.rename(columns={'Unnamed: 1': 'Product Code'})
-      new_data = new_data.rename(columns={'Unnamed: 40': 'Unit Sold'})
-      new_data = new_data.rename(columns={'Unnamed: 61': 'Balance Stock'})
+      new_data = new_data.rename(columns={
+        'Unnamed: 1': 'Product Code',
+        'Unnamed: 40': 'Unit Sold',
+        'Unnamed: 61': 'Balance Stock'
+        })
 
       new_data['Unit Sold'] = new_data['Unit Sold'].astype(int).abs()
       new_data['Balance Stock'] = new_data['Balance Stock'].astype(int)
@@ -152,21 +144,8 @@ def extract_date(new_data):
 def add_ordered_column(product_code_list, df):
   # Create a copy of the slice of the dataframe and then add the new column name Ordered without SettingWithCopyWarning
   new_df = df.copy()
-
-  # if new_df is not empty
-  if new_df.empty == False:
-    new_df.loc[:, 'Ordered'] = ''
-    # Loop through the product_code_list
-    for i in product_code_list:
-      # Check if the product code is in the dataframe
-      if i in new_df['Product Code'].values:
-          # If the product code is in the dataframe, change the value of the Ordered column to Yes
-          new_df.loc[df['Product Code'] == i, 'Ordered'] = 'Yes'
-          
-      else:
-          # If the product code is not in the dataframe, change the value of the Ordered column to No
-          new_df.loc[df['Product Code'] == i, 'Ordered'] = 'No'
-
+  
+  new_df['Ordered'] = new_df['Product Code'].isin(product_code_list).map({True: 'Yes', False: 'No'})
 
   return new_df
 
@@ -194,6 +173,7 @@ def main():
           #extract data from google sheet
           google_data = extract_google_sheet("Loose Cargo!A1:C200")
           st.session_state.google_data_df = google_data
+            
           #extract product code from google_data and add into google_data_product_list
           for i in google_data['Product Code']:
             st.session_state.google_data_product_list.append(i)
@@ -280,19 +260,20 @@ def main():
     uploaded_file = st.file_uploader("Choose a Excel file", type="xlsx")  
     
     if uploaded_file:
-      try:
-        #load data
-        data = load_data(uploaded_file)
-        new_data = extract_data(data)
+      with st.spinner("Processing file..."):
+        try:
+          #load data
+          data = load_data(uploaded_file)
+          new_data = extract_data(data)
         
-        #extract date
-        st.session_state.date_list = extract_date(data)
+          #extract date
+          st.session_state.date_list = extract_date(data)
 
-        #extract reorder data
-        st.session_state.reorder_data = extract_reorder_data(new_data)
+          #extract reorder data
+          st.session_state.reorder_data = extract_reorder_data(new_data)
         
-      except Exception as e:
-        st.warning("The file is not in the correct format.")
+        except Exception as e:
+          st.warning("The file is not in the correct format.")
 
 
     #display date list if it is in the session state
