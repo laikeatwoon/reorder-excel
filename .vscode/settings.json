@@ -9,4 +9,6 @@
         "isin",
         "streamlit"
     ]
+
+    "python.pythonPath": "${workspaceFolder}\\.venv\\Scripts\\python.exe"
 }
