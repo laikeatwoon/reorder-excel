@@ -158,7 +158,7 @@ def main():
   st.set_page_config(layout="wide")
   
   # This code displays the title of the app
-  st.title("📦 Reorder App")
+  st.title(":package: Reorder App")
   
   #create a empty google_data_product_code list in a session state
   if 'google_data_product_list' not in st.session_state:
