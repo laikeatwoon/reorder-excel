@@ -1,299 +1,321 @@
-# %% [markdown]
-# # Build a web application to extract data from an excel file
-
-# %% [markdown]
-# ### Import Libraries
-
-# %%
-#!pip install -r requirements.txt
-
 import streamlit as st
 import pandas as pd
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
+import re
+from typing import Optional, List, Dict, Any
 
-# %% [markdown]
-# ### Define sub functions
-  
-#Load Excel File and print the error message from the read_excel function  
-def load_data(uploaded_file):
-  try:
-    data = pd.read_excel(uploaded_file)
-    return data
-  except Exception as e:
-    st.write(e)
-    return None
+# Configuration constants
+SHEET_CONFIGS = {
+    'DF Items': 'Loose Cargo!A1:C200',
+    'Shandong Items': 'Shandong!A1:C200', 
+    'Taiwan Glass': 'Taiwan!A1:C200',
+    'Lug Cap': 'Lug Cap!A1:C200'
+}
 
+COLUMN_MAPPING = {
+    'Unnamed: 1': 'Product Code',
+    'Unnamed: 40': 'Unit Sold', 
+    'Unnamed: 61': 'Balance Stock'
+}
 
-# %% [markdown]
-# ### Extract Data from excel file
+@st.cache_data
+def load_excel_data(uploaded_file) -> Optional[pd.DataFrame]:
+    """Load Excel file with error handling and caching."""
+    try:
+        return pd.read_excel(uploaded_file)
+    except Exception as e:
+        st.error(f"Error loading Excel file: {str(e)}")
+        return None
 
-# %%
-def extract_data(data):
-    # Create a New Data with Columns with Information
-    new_data = data.loc[:,['Unnamed: 1', 'Unnamed: 40', 'Unnamed: 61']]
-
-    # Drop rows with empty data
-    new_data = new_data.dropna()
-
-    # if new_data is not empty
-    if new_data.empty == False:
-      # rename columns
-      new_data = new_data.rename(columns={
-        'Unnamed: 1': 'Product Code',
-        'Unnamed: 40': 'Unit Sold',
-        'Unnamed: 61': 'Balance Stock'
-        })
-
-      new_data['Unit Sold'] = new_data['Unit Sold'].astype(int).abs()
-      new_data['Balance Stock'] = new_data['Balance Stock'].astype(int)
+def extract_inventory_data(data: pd.DataFrame) -> pd.DataFrame:
+    """Extract and clean inventory data from Excel."""
+    if data is None or data.empty:
+        return pd.DataFrame(columns=['Product Code', 'Unit Sold', 'Balance Stock'])
     
-    else:
-      # create a new_data with 3 columns named Product Code, Unit Sold, Balance Stock
-      new_data = pd.DataFrame(columns=['Product Code', 'Unit Sold', 'Balance Stock'])
-
+    # Select required columns
+    required_cols = ['Unnamed: 1', 'Unnamed: 40', 'Unnamed: 61']
+    missing_cols = [col for col in required_cols if col not in data.columns]
+    
+    if missing_cols:
+        st.warning(f"Missing columns in Excel file: {missing_cols}")
+        return pd.DataFrame(columns=['Product Code', 'Unit Sold', 'Balance Stock'])
+    
+    new_data = data[required_cols].copy()
+    
+    # Drop rows with all NaN values
+    new_data = new_data.dropna(how='all')
+    
+    if new_data.empty:
+        return pd.DataFrame(columns=['Product Code', 'Unit Sold', 'Balance Stock'])
+    
+    # Rename columns
+    new_data = new_data.rename(columns=COLUMN_MAPPING)
+    
+    # Clean and convert data types
+    try:
+        new_data['Unit Sold'] = pd.to_numeric(new_data['Unit Sold'], errors='coerce').fillna(0).astype(int).abs()
+        new_data['Balance Stock'] = pd.to_numeric(new_data['Balance Stock'], errors='coerce').fillna(0).astype(int)
+        
+        # Remove rows where Product Code is NaN
+        new_data = new_data.dropna(subset=['Product Code'])
+        
+    except Exception as e:
+        st.warning(f"Error processing data types: {str(e)}")
+        return pd.DataFrame(columns=['Product Code', 'Unit Sold', 'Balance Stock'])
+    
     return new_data
 
+def get_reorder_items(inventory_data: pd.DataFrame) -> pd.DataFrame:
+    """Extract items that need reordering."""
+    if inventory_data.empty:
+        return pd.DataFrame(columns=['Product Code', 'Unit Sold', 'Balance Stock'])
+    
+    reorder_data = inventory_data[inventory_data['Unit Sold'] >= inventory_data['Balance Stock']].copy()
+    return reorder_data.reset_index(drop=True)
 
-# %% [markdown]
-# ### Extract Reorder Data
+@st.cache_data(ttl=300)  # Cache for 5 minutes
+def fetch_google_sheet_data(sheet_range: str) -> Optional[pd.DataFrame]:
+    """Fetch data from Google Sheets with caching and error handling."""
+    try:
+        # Get credentials from secrets
+        keyfile_dict = st.secrets.get("keyfile")
+        spreadsheet_id = st.secrets.get("SAMPLE_SPREADSHEET_ID")
+        
+        if not keyfile_dict or not spreadsheet_id:
+            st.error("Missing Google Sheets credentials in secrets")
+            return None
+        
+        # Create credentials and service
+        credentials = service_account.Credentials.from_service_account_info(keyfile_dict)
+        service = build('sheets', 'v4', credentials=credentials)
+        
+        # Fetch data
+        result = service.spreadsheets().values().get(
+            spreadsheetId=spreadsheet_id,
+            range=sheet_range
+        ).execute()
+        
+        values = result.get('values', [])
+        if not values:
+            return pd.DataFrame()
+        
+        # Create DataFrame
+        headers = values[0]
+        data_rows = values[1:] if len(values) > 1 else []
+        
+        # Ensure all rows have the same length as headers
+        normalized_rows = []
+        for row in data_rows:
+            # Pad row with empty strings if it's shorter than headers
+            padded_row = row + [''] * (len(headers) - len(row))
+            normalized_rows.append(padded_row[:len(headers)])  # Trim if longer
+        
+        df = pd.DataFrame(normalized_rows, columns=headers)
+        
+        # Clean the dataframe
+        df = df.dropna(how='all')  # Remove completely empty rows
+        df = df.reset_index(drop=True)
+        
+        return df
+        
+    except Exception as e:
+        st.error(f"Error fetching Google Sheet data: {str(e)}")
+        return None
 
-# %%
-def extract_reorder_data(new_data):
-  reorder_data = new_data.query('`Unit Sold` >= `Balance Stock`')
+def extract_date_range(data: pd.DataFrame) -> List[str]:
+    """Extract date range from the last row of data."""
+    if data is None or data.empty:
+        return []
+    
+    try:
+        # Get the last row and convert to string
+        last_row_text = str(data.iloc[-1, 0]) if not data.empty else ""
+        
+        # Find dates using regex (matches DD/MM/YYYY, MM/DD/YYYY, etc.)
+        date_pattern = r'\d{1,2}/\d{1,2}/\d{2,4}'
+        dates = re.findall(date_pattern, last_row_text)
+        
+        return dates[:2]  # Return max 2 dates
+        
+    except Exception as e:
+        st.warning(f"Error extracting dates: {str(e)}")
+        return []
 
-  # reinitialize the index
-  reorder_data = reorder_data.reset_index(drop=True)
-  
-  return reorder_data
+def add_order_status(product_list: List[str], df: pd.DataFrame) -> pd.DataFrame:
+    """Add order status column to dataframe."""
+    if df.empty:
+        return df
+    
+    df_copy = df.copy()
+    df_copy['Ordered'] = df_copy['Product Code'].isin(product_list).map({True: 'Yes', False: 'No'})
+    return df_copy
 
-# %% [markdown]
-# ### Extract Data from google sheet
+def initialize_session_state():
+    """Initialize session state variables."""
+    if 'google_product_codes' not in st.session_state:
+        st.session_state.google_product_codes = set()
 
-# %%
-def extract_google_sheet(sheet_name_range):
+def load_sheet_data(sheet_name: str, sheet_range: str, session_key: str):
+    """Load and cache Google Sheet data."""
+    if session_key not in st.session_state:
+        with st.spinner(f"Loading {sheet_name}..."):
+            sheet_data = fetch_google_sheet_data(sheet_range)
+            if sheet_data is not None:
+                st.session_state[session_key] = sheet_data
+                # Add product codes to the set
+                if 'Product Code' in sheet_data.columns:
+                    product_codes = sheet_data['Product Code'].dropna().tolist()
+                    st.session_state.google_product_codes.update(product_codes)
+            else:
+                st.session_state[session_key] = pd.DataFrame()
+    
+    return st.session_state[session_key]
 
-  # The keyfile is a dictionary, so we can access the individual keys
-  # by using the keyfile_dic variable we just created.
-  keyfile_dic = st.secrets["keyfile"]
+def clear_session_state():
+    """Clear relevant session state variables."""
+    keys_to_clear = [
+        'google_data_df', 'google_data_sd', 'google_data_tw', 'google_data_lc',
+        'google_product_codes', 'date_range', 'reorder_data'
+    ]
+    
+    for key in keys_to_clear:
+        if key in st.session_state:
+            del st.session_state[key]
 
-  # Initialize the credentials variable.
-  cred = None
-  
-  # Create credentials using the keyfile dictionary.
-  cred = service_account.Credentials.from_service_account_info(keyfile_dic)
-
-# Build the service variable using the credentials we just created.
-  service = build('sheets', 'v4', credentials=cred)
-
-  # Call the Sheets API
-  sheet = service.spreadsheets()
-  result = sheet.values().get(spreadsheetId=st.secrets["SAMPLE_SPREADSHEET_ID"],
-                              range=sheet_name_range).execute()
-  
-  # Get the data from the Google Sheet
-  data = result.get('values', [])
-  headers = data.pop(0)
-
-  # If there are no values in the Google Sheet, create an empty list
-  data.append([''] * len(headers))
-
-  # Convert the data into a Pandas dataframe
-  df = pd.DataFrame(data, columns=headers)
-
-  # Drop the last row if it is empty
-  df.drop(df.tail(1).index, inplace=True)
-
-  # Drop rows that are entirely empty
-  df.dropna(how='all', inplace=True)
-  
-  return df
-
-# %% [markdown]
-# ### Extract Date from dataframe
-def extract_date(new_data):
-  # Get the last row of new_df
-  last_row = new_data.iloc[-1]
-
-  # Get the value of the last row
-  last_row_value = last_row.iloc[0]
-
-  # I want to find all the date inside the last row value
-  # Split the last row value into a list
-  last_row_value_list = last_row_value.split()
-
-  # Create a new list to store the date
-  date_list = []
-
-  # Loop through the last_row_value_list
-  for i in last_row_value_list:
-      # Check if the value is a date
-      if '/' in i:
-          # If it is a date, append it to the date_list
-          date_list.append(i)
-
-  return date_list
-
-# %% [markdown]
-# A function compare a list of product code with a dataframe of product code
-# and return a dataframe with a new column name Ordered
-# The value of the new column is Yes or No
-# Yes means the product code is in the list
-# No means the product code is not in the list
-
-def add_ordered_column(product_code_list, df):
-  # Create a copy of the slice of the dataframe and then add the new column name Ordered without SettingWithCopyWarning
-  new_df = df.copy()
-  
-  new_df['Ordered'] = new_df['Product Code'].isin(product_code_list).map({True: 'Yes', False: 'No'})
-
-  return new_df
-
-# %% [markdown]
-# ### Main Function
-
-# %%
 def main():
-
-  st.set_page_config(layout="wide")
-  
-  # This code displays the title of the app
-  st.title(":package: Reorder App")
-  
-  #create a empty google_data_product_code list in a session state
-  if 'google_data_product_list' not in st.session_state:
-    st.session_state.google_data_product_list = []
- 
-  with st.sidebar:
+    """Main application function."""
+    st.set_page_config(
+        page_title="Reorder App",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
     
-    with st.expander("DF Items"):
-
-      try:
-        if 'google_data_df' not in st.session_state:
-          #extract data from google sheet
-          google_data = extract_google_sheet("Loose Cargo!A1:C200")
-          st.session_state.google_data_df = google_data
+    st.title("📦 Inventory Reorder Application")
+    
+    # Initialize session state
+    initialize_session_state()
+    
+    # Sidebar for Google Sheets data
+    with st.sidebar:
+        st.header("📊 Inventory Sources")
+        
+        # Load all sheet data
+        for sheet_name, sheet_range in SHEET_CONFIGS.items():
+            session_key = f"google_data_{sheet_name.lower().replace(' ', '_')}"
             
-          #extract product code from google_data and add into google_data_product_list
-          for i in google_data['Product Code']:
-            st.session_state.google_data_product_list.append(i)
-        else: 
-          google_data = st.session_state.google_data_df
+            with st.expander(sheet_name):
+                try:
+                    sheet_data = load_sheet_data(sheet_name, sheet_range, session_key)
+                    
+                    if not sheet_data.empty:
+                        st.dataframe(sheet_data, use_container_width=True)
+                        st.caption(f"Loaded {len(sheet_data)} items")
+                    else:
+                        st.warning(f"No data available for {sheet_name}")
+                        
+                except Exception as e:
+                    st.error(f"Error loading {sheet_name}: {str(e)}")
         
-        st.dataframe(google_data, use_container_width=True)
-      
-      except Exception as e:
-        st.warning("Not able to load Google Sheet.")  
+        # Refresh button
+        if st.button("🔄 Refresh Data", type="secondary"):
+            clear_session_state()
+            st.rerun()
+        
+        # Display total product codes loaded
+        if st.session_state.google_product_codes:
+            st.success(f"Total products loaded: {len(st.session_state.google_product_codes)}")
     
-    with st.expander("Shandong Items"):
-      try:
-
-        if 'google_data_sd' not in st.session_state:
-          #extract data from google sheet
-          google_data = extract_google_sheet("Shandong!A1:C200")
-          st.session_state.google_data_sd = google_data
-          #extract product code from google_data and add into google_data_product_list
-          for i in google_data['Product Code']:
-            st.session_state.google_data_product_list.append(i)
-        else:
-          google_data = st.session_state.google_data_sd
-
-        st.dataframe(google_data, use_container_width=True)
-
-      except Exception as e:
-        st.warning("Not able to load Google Sheet.") 
-
-    with st.expander("Taiwan Glass"):
-      try:
-        
-        if 'google_data_tw' not in st.session_state:
-          #extract data from google sheet
-          google_data = extract_google_sheet("Taiwan!A1:C200")
-          st.session_state.google_data_tw = google_data
-          #extract product code from google_data and add into google_data_product_list
-          for i in google_data['Product Code']:
-            st.session_state.google_data_product_list.append(i)
-        else:
-          google_data = st.session_state.google_data_tw
-          
-        st.dataframe(google_data, use_container_width=True)
-
-      except Exception as e:
-        st.warning("Not able to load Google Sheet.") 
-
-    with st.expander("Lug Cap"):
-      try:
-
-        if 'google_data_lc' not in st.session_state:
-          #extract data from google sheet
-          google_data = extract_google_sheet("Lug Cap!A1:C200")
-          st.session_state.google_data_lc = google_data
-          #extract product code from google_data and add into google_data_product_list
-          for i in google_data['Product Code']:
-            st.session_state.google_data_product_list.append(i)
-        else:
-          google_data = st.session_state.google_data_lc
-
-        st.dataframe(google_data, use_container_width=True)
-        
-      except Exception as e:
-        st.warning("Not able to load Google Sheet.") 
-
-    ## A button to remove certain variable in the session state and refresh the page
-    if st.button("Refresh"):
-      if 'google_data_df' in st.session_state:
-        del st.session_state.google_data_df
-      if 'google_data_sd' in st.session_state:
-        del st.session_state.google_data_sd
-      if 'google_data_tw' in st.session_state:
-        del st.session_state.google_data_tw
-      if 'google_data_lc' in st.session_state:
-        del st.session_state.google_data_lc
-      if 'google_data_product_list' in st.session_state:
-        del st.session_state.google_data_product_list
-      st.rerun()
-      #st.experimental_rerun()
-      
-       
-  with st._main:
-    st.header("Please Order Stocks Display in the Table")
-    uploaded_file = st.file_uploader("Choose a Excel file", type="xlsx")  
+    # Main content area
+    st.header("📈 Reorder Analysis")
     
-    if uploaded_file:
-      with st.spinner("Processing file..."):
-        try:
-          #load data
-          data = load_data(uploaded_file)
-          new_data = extract_data(data)
+    # File upload
+    uploaded_file = st.file_uploader(
+        "Upload Excel Inventory File",
+        type=['xlsx', 'xls'],
+        help="Upload your inventory Excel file to analyze reorder requirements"
+    )
+    
+    if uploaded_file is not None:
+        with st.spinner("Processing inventory file..."):
+            try:
+                # Load and process data
+                raw_data = load_excel_data(uploaded_file)
+                if raw_data is not None:
+                    inventory_data = extract_inventory_data(raw_data)
+                    
+                    # Extract date range
+                    date_range = extract_date_range(raw_data)
+                    st.session_state.date_range = date_range
+                    
+                    # Get reorder items
+                    reorder_data = get_reorder_items(inventory_data)
+                    st.session_state.reorder_data = reorder_data
+                    
+                    # Success message
+                    st.success(f"✅ Processed {len(inventory_data)} inventory items")
+                    
+            except Exception as e:
+                st.error(f"❌ Error processing file: {str(e)}")
+    
+    # Display results
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        # Display date range
+        if 'date_range' in st.session_state and st.session_state.date_range:
+            date_range = st.session_state.date_range
+            if len(date_range) >= 2:
+                st.info(f"📅 Period: {date_range[0]} to {date_range[1]}")
+            elif len(date_range) == 1:
+                st.info(f"📅 Date: {date_range[0]}")
+    
+    with col2:
+        # Display summary stats
+        if 'reorder_data' in st.session_state and not st.session_state.reorder_data.empty:
+            reorder_count = len(st.session_state.reorder_data)
+            st.metric("Items Requiring Reorder", reorder_count)
+    
+    # Display reorder table
+    if 'reorder_data' in st.session_state and not st.session_state.reorder_data.empty:
+        st.subheader("🛒 Items Requiring Reorder")
         
-          #extract date
-          st.session_state.date_list = extract_date(data)
-
-          #extract reorder data
-          st.session_state.reorder_data = extract_reorder_data(new_data)
+        # Add order status
+        reorder_with_status = add_order_status(
+            list(st.session_state.google_product_codes),
+            st.session_state.reorder_data
+        )
         
-        except Exception as e:
-          st.warning("The file is not in the correct format.")
-
-
-    #display date list if it is in the session state
-    if 'date_list' in st.session_state:
-        if len(st.session_state.date_list) == 2:
-          st.write("From ", st.session_state.date_list[0], " To ", st.session_state.date_list[1])
-
-    #display reorder data if it is in the session state
-    if 'reorder_data' in st.session_state:
-        #add ordered column
-        st.session_state.reorder_data = add_ordered_column(
-          st.session_state.google_data_product_list, st.session_state.reorder_data)
+        # Display the table with better formatting
+        st.dataframe(
+            reorder_with_status,
+            use_container_width=True,
+            column_config={
+                "Product Code": st.column_config.TextColumn("Product Code", width="medium"),
+                "Unit Sold": st.column_config.NumberColumn("Units Sold", format="%d"),
+                "Balance Stock": st.column_config.NumberColumn("Balance Stock", format="%d"),
+                "Ordered": st.column_config.TextColumn("Order Status", width="small")
+            }
+        )
         
-        st.table(st.session_state.reorder_data)
-
-  
+        # Summary by order status
+        if 'Ordered' in reorder_with_status.columns:
+            status_counts = reorder_with_status['Ordered'].value_counts()
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if 'Yes' in status_counts:
+                    st.success(f"✅ Already Ordered: {status_counts['Yes']}")
+            
+            with col2:
+                if 'No' in status_counts:
+                    st.warning(f"⏳ Needs Ordering: {status_counts['No']}")
+    
+    elif 'reorder_data' in st.session_state:
+        st.info("📋 No items currently require reordering")
+    
+    else:
+        st.info("📁 Please upload an Excel file to begin analysis")
 
 if __name__ == "__main__":
     main()
-
-
-
-
