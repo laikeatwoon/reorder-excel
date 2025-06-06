@@ -74,7 +74,6 @@ def get_reorder_items(inventory_data: pd.DataFrame) -> pd.DataFrame:
     reorder_data = inventory_data[inventory_data['Unit Sold'] >= inventory_data['Balance Stock']].copy()
     return reorder_data.reset_index(drop=True)
 
-@st.cache_data(ttl=300)  # Cache for 5 minutes
 def fetch_google_sheet_data(sheet_range: str) -> Optional[pd.DataFrame]:
     """Fetch data from Google Sheets with caching and error handling."""
     try:
@@ -156,27 +155,42 @@ def initialize_session_state():
     if 'google_product_codes' not in st.session_state:
         st.session_state.google_product_codes = set()
 
-def load_sheet_data(sheet_name: str, sheet_range: str, session_key: str):
+def load_sheet_data(sheet_name: str, sheet_range: str, session_key: str, force_refresh: bool = False):
     """Load and cache Google Sheet data."""
-    if session_key not in st.session_state:
+    if session_key not in st.session_state or force_refresh:
         with st.spinner(f"Loading {sheet_name}..."):
             sheet_data = fetch_google_sheet_data(sheet_range)
             if sheet_data is not None:
                 st.session_state[session_key] = sheet_data
-                # Add product codes to the set
+                # Add product codes to the set (clear and rebuild if refreshing)
                 if 'Product Code' in sheet_data.columns:
                     product_codes = sheet_data['Product Code'].dropna().tolist()
-                    st.session_state.google_product_codes.update(product_codes)
+                    if force_refresh:
+                        # If refreshing, we'll rebuild the entire product codes set later
+                        pass
+                    else:
+                        st.session_state.google_product_codes.update(product_codes)
             else:
                 st.session_state[session_key] = pd.DataFrame()
     
     return st.session_state[session_key]
 
-def clear_session_state():
-    """Clear relevant session state variables."""
+def clear_google_sheets_data():
+    """Clear only Google Sheets related session state variables, preserving Excel data."""
+    google_sheets_keys = [
+        'google_data_df_items', 'google_data_shandong_items', 'google_data_taiwan_glass', 'google_data_lug_cap',
+        'google_product_codes'
+    ]
+    
+    for key in google_sheets_keys:
+        if key in st.session_state:
+            del st.session_state[key]
+
+def clear_all_session_state():
+    """Clear all session state variables including Excel data."""
     keys_to_clear = [
-        'google_data_df', 'google_data_sd', 'google_data_tw', 'google_data_lc',
-        'google_product_codes', 'date_range', 'reorder_data'
+        'google_data_df_items', 'google_data_shandong_items', 'google_data_taiwan_glass', 'google_data_lug_cap',
+        'google_product_codes', 'date_range', 'reorder_data', 'excel_data', 'inventory_data'
     ]
     
     for key in keys_to_clear:
@@ -217,9 +231,33 @@ def main():
                 except Exception as e:
                     st.error(f"Error loading {sheet_name}: {str(e)}")
         
-        # Refresh button
+        # Refresh button - only refresh Google Sheets data, keep Excel data
         if st.button("🔄 Refresh Data", type="secondary"):
-            clear_session_state()
+            clear_google_sheets_data()  # Only clear Google Sheets data
+    
+            # Force refresh all Google Sheets
+            for sheet_name, sheet_range in SHEET_CONFIGS.items():
+                session_key = f"google_data_{sheet_name.lower().replace(' ', '_')}"
+                load_sheet_data(sheet_name, sheet_range, session_key, force_refresh=True)
+    
+            # Rebuild the product codes set after refreshing all sheets
+            st.session_state.google_product_codes = set()
+            for sheet_name in SHEET_CONFIGS.keys():
+                session_key = f"google_data_{sheet_name.lower().replace(' ', '_')}"
+                if session_key in st.session_state:
+                    sheet_data = st.session_state[session_key]
+                    if 'Product Code' in sheet_data.columns:
+                        product_codes = sheet_data['Product Code'].dropna().tolist()
+                        st.session_state.google_product_codes.update(product_codes)
+    
+            # Update reorder data with new order status if Excel data exists
+            if 'reorder_data' in st.session_state and not st.session_state.reorder_data.empty:
+                st.session_state.reorder_data_with_status = add_order_status(
+                    list(st.session_state.google_product_codes),
+                    st.session_state.reorder_data
+                )
+    
+            st.success("✅ Google Sheets data refreshed!")
             st.rerun()
         
         # Display total product codes loaded
@@ -237,26 +275,62 @@ def main():
     )
     
     if uploaded_file is not None:
-        with st.spinner("Processing inventory file..."):
-            try:
-                # Load and process data
-                raw_data = load_excel_data(uploaded_file)
-                if raw_data is not None:
-                    inventory_data = extract_inventory_data(raw_data)
-                    
-                    # Extract date range
-                    date_range = extract_date_range(raw_data)
-                    st.session_state.date_range = date_range
-                    
-                    # Get reorder items
-                    reorder_data = get_reorder_items(inventory_data)
-                    st.session_state.reorder_data = reorder_data
-                    
-                    # Success message
-                    st.success(f"✅ Processed {len(inventory_data)} inventory items")
-                    
-            except Exception as e:
-                st.error(f"❌ Error processing file: {str(e)}")
+        # Store uploaded file info to detect changes
+        file_info = {
+            'name': uploaded_file.name,
+            'size': uploaded_file.size,
+            'type': uploaded_file.type
+        }
+        
+        # Check if this is a new file or if we should reprocess
+        should_process = (
+            'excel_file_info' not in st.session_state or 
+            st.session_state.excel_file_info != file_info or
+            'inventory_data' not in st.session_state
+        )
+        
+        if should_process:
+            with st.spinner("Processing inventory file..."):
+                try:
+                    # Load and process data
+                    raw_data = load_excel_data(uploaded_file)
+                    if raw_data is not None:
+                        # Store the processed data in session state
+                        st.session_state.excel_file_info = file_info
+                        st.session_state.raw_excel_data = raw_data
+                        
+                        inventory_data = extract_inventory_data(raw_data)
+                        st.session_state.inventory_data = inventory_data
+                        
+                        # Extract date range
+                        date_range = extract_date_range(raw_data)
+                        st.session_state.date_range = date_range
+                        
+                        # Get reorder items
+                        reorder_data = get_reorder_items(inventory_data)
+                        st.session_state.reorder_data = reorder_data
+                        
+                        # Success message
+                        st.success(f"✅ Processed {len(inventory_data)} inventory items")
+                        
+                except Exception as e:
+                    st.error(f"❌ Error processing file: {str(e)}")
+        else:
+            # File already processed, just show success message
+            if 'inventory_data' in st.session_state:
+                st.info(f"✅ Using previously processed file: {uploaded_file.name}")
+                st.caption(f"📊 {len(st.session_state.inventory_data)} inventory items loaded")
+    
+    # Always update the reorder data with current order status when Google Sheets data changes
+    if ('reorder_data' in st.session_state and 
+        not st.session_state.reorder_data.empty and 
+        st.session_state.google_product_codes):
+        
+        # Update reorder data with current order status
+        st.session_state.reorder_data_with_status = add_order_status(
+            list(st.session_state.google_product_codes),
+            st.session_state.reorder_data
+        )
     
     # Display results
     col1, col2 = st.columns([1, 2])
@@ -280,15 +354,19 @@ def main():
     if 'reorder_data' in st.session_state and not st.session_state.reorder_data.empty:
         st.subheader("🛒 Items Requiring Reorder")
         
-        # Add order status
-        reorder_with_status = add_order_status(
-            list(st.session_state.google_product_codes),
-            st.session_state.reorder_data
-        )
+        # Use the updated reorder data with current order status
+        display_data = st.session_state.get('reorder_data_with_status', st.session_state.reorder_data)
+        
+        # If we don't have the updated version, create it
+        if 'reorder_data_with_status' not in st.session_state:
+            display_data = add_order_status(
+                list(st.session_state.google_product_codes),
+                st.session_state.reorder_data
+            )
         
         # Display the table with better formatting
         st.dataframe(
-            reorder_with_status,
+            display_data,
             use_container_width=True,
             column_config={
                 "Product Code": st.column_config.TextColumn("Product Code", width="medium"),
@@ -299,8 +377,8 @@ def main():
         )
         
         # Summary by order status
-        if 'Ordered' in reorder_with_status.columns:
-            status_counts = reorder_with_status['Ordered'].value_counts()
+        if 'Ordered' in display_data.columns:
+            status_counts = display_data['Ordered'].value_counts()
             col1, col2 = st.columns(2)
             
             with col1:
