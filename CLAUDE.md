@@ -13,8 +13,7 @@ This is a **Streamlit inventory reorder application** that:
 ## Core Architecture
 
 ### Main Files
-- `reorder-app.py` - Original version of the Streamlit application
-- `optimized_reorder_app.py` - Enhanced version with better error handling, logging, and modular structure
+- `reorder-app.py` - Main Streamlit application with enhanced error handling, logging, and modular structure
 - `requirements.txt` - Python dependencies for the application
 
 ### Key Components
@@ -41,10 +40,6 @@ This is a **Streamlit inventory reorder application** that:
 ### Running the Application
 ```bash
 streamlit run reorder-app.py
-```
-or
-```bash
-streamlit run optimized_reorder_app.py
 ```
 
 ### Installing Dependencies
@@ -85,7 +80,7 @@ Sheet ranges are defined in `Config.SHEET_CONFIGS`:
 
 ### Error Handling
 - Uses comprehensive try-catch blocks with user-friendly error messages
-- Logging with Python's logging module (in optimized version)
+- Logging with Python's logging module
 - Graceful degradation when Google Sheets data is unavailable
 
 ### Data Processing Flow
