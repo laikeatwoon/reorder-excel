@@ -1,5 +1,5 @@
 .streamlit/secrets.toml
 .vscode/tasks.json
 DF_3M.xlsx
-venv/
-env/
+.venv/
+.claude/
