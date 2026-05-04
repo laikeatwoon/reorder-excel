@@ -23,7 +23,8 @@ class Config:
     
     COLUMN_MAPPING = {
         'Unnamed: 1': 'Product Code',
-        'Unnamed: 40': 'Unit Sold', 
+        'Unnamed: 40': 'Unit Sold',
+        'Unnamed: 43': 'Unit Lost', 
         'Unnamed: 61': 'Balance Stock'
     }
     
@@ -88,14 +89,14 @@ def validate_excel_structure(data: pd.DataFrame) -> Tuple[bool, List[str]]:
 def extract_inventory_data(data: pd.DataFrame) -> pd.DataFrame:
     """Extract and clean inventory data from Excel with enhanced validation."""
     if data is None or data.empty:
-        return pd.DataFrame(columns=['Product Code', 'Unit Sold', 'Balance Stock'])
+        return pd.DataFrame(columns=['Product Code', 'Unit Sold', 'Unit Lost', 'Balance Stock'])
     
     # Validate Excel structure
     is_valid, missing_cols = validate_excel_structure(data)
     if not is_valid:
         st.error(f"❌ Missing required columns: {missing_cols}")
         st.info("💡 Expected columns: " + ", ".join(Config.COLUMN_MAPPING.keys()))
-        return pd.DataFrame(columns=['Product Code', 'Unit Sold', 'Balance Stock'])
+        return pd.DataFrame(columns=['Product Code', 'Unit Sold', 'Unit Lost', 'Balance Stock'])
     
     required_cols = list(Config.COLUMN_MAPPING.keys())
     new_data = data[required_cols].copy()
@@ -106,7 +107,7 @@ def extract_inventory_data(data: pd.DataFrame) -> pd.DataFrame:
     
     if new_data.empty:
         st.warning("⚠️ No valid data rows found after cleaning")
-        return pd.DataFrame(columns=['Product Code', 'Unit Sold', 'Balance Stock'])
+        return pd.DataFrame(columns=['Product Code', 'Unit Sold', 'Unit Lost', 'Balance Stock'])
     
     # Log data cleaning stats
     if initial_rows != len(new_data):
@@ -120,6 +121,11 @@ def extract_inventory_data(data: pd.DataFrame) -> pd.DataFrame:
         # Clean and convert Unit Sold
         new_data['Unit Sold'] = pd.to_numeric(
             new_data['Unit Sold'], errors='coerce'
+        ).fillna(0).astype(int).abs()
+        
+        # Clean and convert Unit Lost
+        new_data['Unit Lost'] = pd.to_numeric(
+            new_data['Unit Lost'], errors='coerce'
         ).fillna(0).astype(int).abs()
         
         # Clean and convert Balance Stock
@@ -148,7 +154,7 @@ def extract_inventory_data(data: pd.DataFrame) -> pd.DataFrame:
         error_msg = f"Error processing data types: {str(e)}"
         logger.error(error_msg)
         st.error(f"❌ {error_msg}")
-        return pd.DataFrame(columns=['Product Code', 'Unit Sold', 'Balance Stock'])
+        return pd.DataFrame(columns=['Product Code', 'Unit Sold', 'Unit Lost', 'Balance Stock'])
     
     logger.info(f"Successfully processed {len(new_data)} inventory items")
     return new_data
@@ -156,9 +162,9 @@ def extract_inventory_data(data: pd.DataFrame) -> pd.DataFrame:
 def get_reorder_items(inventory_data: pd.DataFrame) -> pd.DataFrame:
     """Extract items that need reordering."""
     if inventory_data.empty:
-        return pd.DataFrame(columns=['Product Code', 'Unit Sold', 'Balance Stock'])
+        return pd.DataFrame(columns=['Product Code', 'Unit Sold', 'Unit Lost', 'Balance Stock'])
     
-    reorder_data = inventory_data[inventory_data['Unit Sold'] >= inventory_data['Balance Stock']].copy()
+    reorder_data = inventory_data[(inventory_data['Unit Sold'] + inventory_data['Unit Lost']) >= inventory_data['Balance Stock']].copy()
     return reorder_data.reset_index(drop=True)
 
 @st.cache_data(ttl=300)  # Cache for 5 minutes
@@ -366,6 +372,12 @@ def render_sidebar():
             st.caption("💡 Use 'Refresh Data' to get latest Google Sheets changes")
         else:
             st.info("🔄 Click 'Refresh Data' to load Google Sheets data")
+        
+        # Debug mode toggle
+        st.markdown("---")
+        st.header("🐛 Debug Mode")
+        debug_mode = st.checkbox("Enable Debug Mode", help="Show raw data and processing details")
+        st.session_state.debug_mode = debug_mode
 
 def handle_data_refresh():
     """Handle the refresh of Google Sheets data with proper cache clearing."""
@@ -549,6 +561,7 @@ def render_reorder_table():
         column_config = {
             "Product Code": st.column_config.TextColumn("Product Code", width="medium"),
             "Unit Sold": st.column_config.NumberColumn("Units Sold", format="%d"),
+            "Unit Lost": st.column_config.NumberColumn("Units Lost", format="%d"),
             "Balance Stock": st.column_config.NumberColumn("Balance Stock", format="%d"),
             "Ordered": st.column_config.TextColumn("Order Status", width="small")
         }
@@ -624,6 +637,81 @@ def render_order_status_summary(data: pd.DataFrame):
             if pending_count > 0:
                 st.warning(f"⏳ Needs Ordering: {pending_count}")
 
+def render_debug_section():
+    """Render debug information showing raw data and processing details."""
+    st.header("🐛 Debug Information")
+    
+    # Show raw Excel data if available
+    if 'raw_excel_data' in st.session_state:
+        with st.expander("📄 Original Excel Data (Raw)", expanded=False):
+            raw_data = st.session_state.raw_excel_data
+            st.info(f"Shape: {raw_data.shape[0]} rows × {raw_data.shape[1]} columns")
+            
+            # Show column mapping
+            st.subheader("Column Mapping")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.write("**Expected Columns:**")
+                for excel_col, display_name in Config.COLUMN_MAPPING.items():
+                    available = "✅" if excel_col in raw_data.columns else "❌"
+                    st.write(f"{available} `{excel_col}` → {display_name}")
+            
+            with col2:
+                st.write("**Sample Data:**")
+                if not raw_data.empty:
+                    # Show first few rows of the mapped columns
+                    mapped_cols = [col for col in Config.COLUMN_MAPPING.keys() if col in raw_data.columns]
+                    if mapped_cols:
+                        sample_data = raw_data[mapped_cols].head(10)
+                        st.dataframe(sample_data, use_container_width=True)
+                    else:
+                        st.warning("No mapped columns found in data")
+            
+            # Show full raw data (first 100 rows)
+            st.subheader("Raw Data Preview")
+            st.dataframe(raw_data.head(100), use_container_width=True)
+    
+    # Show processed inventory data if available
+    if 'inventory_data' in st.session_state:
+        with st.expander("🔧 Processed Inventory Data", expanded=False):
+            inventory_data = st.session_state.inventory_data
+            st.info(f"Processed: {len(inventory_data)} items")
+            
+            # Show data types and statistics
+            col1, col2 = st.columns(2)
+            with col1:
+                st.subheader("Data Types")
+                st.write(inventory_data.dtypes)
+            
+            with col2:
+                st.subheader("Statistics")
+                st.write(inventory_data.describe())
+            
+            # Show the processed data
+            st.subheader("Processed Data")
+            st.dataframe(inventory_data, use_container_width=True)
+    
+    # Show reorder data if available
+    if 'reorder_data' in st.session_state:
+        with st.expander("🛒 Reorder Analysis Debug", expanded=False):
+            reorder_data = st.session_state.reorder_data
+            st.info(f"Items requiring reorder: {len(reorder_data)}")
+            
+            if not reorder_data.empty:
+                st.subheader("Reorder Logic")
+                st.code("Condition: (Unit Sold + Unit Lost) >= Balance Stock")
+                
+                # Show calculation breakdown
+                st.subheader("Calculation Breakdown")
+                debug_calc = reorder_data.copy()
+                debug_calc['Total Depletion'] = debug_calc['Unit Sold'] + debug_calc['Unit Lost']
+                debug_calc['Reorder Check'] = debug_calc['Total Depletion'].astype(str) + ' >= ' + debug_calc['Balance Stock'].astype(str)
+                st.dataframe(debug_calc, use_container_width=True)
+            else:
+                st.info("No items currently meet the reorder criteria")
+    else:
+        st.info("🔄 Upload an Excel file to see debug information")
+
 def main():
     """Main application function - now modular and clean."""
     st.set_page_config(
@@ -647,6 +735,10 @@ def main():
     
     # Handle file upload and processing
     file_uploaded = handle_file_upload()
+    
+    # Show debug information if debug mode is enabled
+    if st.session_state.get('debug_mode', False):
+        render_debug_section()
     
     # Render analysis results if data is available
     if file_uploaded or ('inventory_data' in st.session_state and 
